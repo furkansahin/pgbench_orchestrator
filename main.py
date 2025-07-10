@@ -155,11 +155,28 @@ def run_tpch(instance, bench, output_dir):
 
     # 4. Run queries
     query_files = sorted(glob.glob(os.path.join(queries_dir, '*.sql')), key=lambda x: int(re.findall(r'(\d+)', os.path.basename(x))[0]))
+    # Load query parameters
+    import yaml as pyyaml
+    params_path = os.path.join(tpch_dir, 'query_parameters.yaml')
+    if os.path.exists(params_path):
+        with open(params_path) as pf:
+            param_map = pyyaml.safe_load(pf)
+    else:
+        param_map = {}
+
     for r in range(reps):
         for qf in query_files:
             qname = os.path.basename(qf)
+            qnum = int(re.findall(r'(\d+)', qname)[0])
             with open(qf) as f:
                 query = f.read()
+            # Substitute parameters :1, :2, ... if present
+            params = param_map.get(qnum, [])
+            for idx, val in enumerate(params, 1):
+                # If value is string and not already quoted, quote it for SQL
+                if isinstance(val, str) and not val.startswith("'"):
+                    val = f"'{val}'"
+                query = query.replace(f":{idx}", str(val))
             print(f"[INFO] Running TPC-H query {qname} (run {r+1}/{reps})...")
             try:
                 start = time.time()
