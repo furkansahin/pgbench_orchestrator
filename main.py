@@ -130,9 +130,11 @@ def main():
     config = load_config()
     ensure_dir(config['output_dir'])
     for instance in config['postgresql_instances']:
+        first = True
         for bench in config['benchmarks']:
             print(f"[INFO] Benchmarking {instance['name']} with {bench['name']} scenario...")
-            run_pgbench(instance, bench, config['output_dir'], skip_db_check=args.skip_db_check)
+            run_pgbench(instance, bench, config['output_dir'], skip_db_check=(args.skip_db_check or not first))
+            first = False
     print("[DONE] All benchmarks completed.")
 
 
