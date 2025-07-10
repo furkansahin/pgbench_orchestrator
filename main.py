@@ -121,6 +121,83 @@ def run_pgbench(instance, bench, output_dir, skip_db_check=False):
     return csv_file
 
 
+def run_tpch(instance, bench, output_dir):
+    import csv
+    import glob
+    import time
+    import psycopg2
+    import re
+    conn_str = instance['conn_str']
+    name = instance['name']
+    scale = bench['scale_factor']
+    reps = bench['repetitions']
+    queries_dir = bench.get('queries_dir')
+    tpch_dir = os.path.join(os.path.dirname(__file__), 'benchmarks', 'tpch')
+    dbgen_dir = os.path.join(tpch_dir, 'dbgen')
+    dbgen_bin = os.path.join(dbgen_dir, 'dbgen')
+    ddl_path = os.path.join(tpch_dir, 'tpch_postgres_ddl.sql')
+    load_path = os.path.join(tpch_dir, 'load_tpch_data.sql')
+    csv_file = os.path.join(output_dir, f"{name}_tpch_results.csv")
+    fieldnames = ['instance', 'query', 'run', 'scale_factor', 'elapsed_sec', 'rowcount']
+    rows = []
+
+    # 1. Generate data with dbgen
+    print(f"[INFO] Generating TPC-H data with dbgen at scale {scale}...")
+    subprocess.run([dbgen_bin, '-f', '-s', str(scale)], cwd=dbgen_dir, check=True)
+
+    # 2. Create tables
+    print(f"[INFO] Creating TPC-H tables...")
+    subprocess.run(['psql', conn_str, '-f', ddl_path], check=True)
+
+    # 3. Load data into tables
+    print(f"[INFO] Loading TPC-H data into tables...")
+    subprocess.run(['psql', conn_str, '-f', load_path], cwd=dbgen_dir, check=True)
+
+    # 4. Run queries
+    query_files = sorted(glob.glob(os.path.join(queries_dir, '*.sql')), key=lambda x: int(re.findall(r'(\d+)', os.path.basename(x))[0]))
+    for r in range(reps):
+        for qf in query_files:
+            qname = os.path.basename(qf)
+            with open(qf) as f:
+                query = f.read()
+            print(f"[INFO] Running TPC-H query {qname} (run {r+1}/{reps})...")
+            try:
+                start = time.time()
+                with psycopg2.connect(conn_str) as conn:
+                    with conn.cursor() as cur:
+                        cur.execute(query)
+                        try:
+                            rowcount = cur.rowcount
+                        except Exception:
+                            rowcount = None
+                elapsed = time.time() - start
+                rows.append({
+                    'instance': name,
+                    'query': qname,
+                    'run': r+1,
+                    'scale_factor': scale,
+                    'elapsed_sec': elapsed,
+                    'rowcount': rowcount
+                })
+            except Exception as e:
+                print(f"[ERROR] Query {qname} failed: {e}")
+                rows.append({
+                    'instance': name,
+                    'query': qname,
+                    'run': r+1,
+                    'scale_factor': scale,
+                    'elapsed_sec': None,
+                    'rowcount': None
+                })
+    # Write CSV
+    with open(csv_file, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+    print(f"[INFO] TPC-H results written to {csv_file}")
+    return csv_file
+
+
 def main():
     import argparse
     parser = argparse.ArgumentParser(description="pgbench orchestrator")
@@ -133,7 +210,10 @@ def main():
         first = True
         for bench in config['benchmarks']:
             print(f"[INFO] Benchmarking {instance['name']} with {bench['name']} scenario...")
-            run_pgbench(instance, bench, config['output_dir'], skip_db_check=(args.skip_db_check or not first))
+            if bench['name'] == 'tpch':
+                run_tpch(instance, bench, config['output_dir'])
+            else:
+                run_pgbench(instance, bench, config['output_dir'], skip_db_check=(args.skip_db_check or not first))
             first = False
     print("[DONE] All benchmarks completed.")
 

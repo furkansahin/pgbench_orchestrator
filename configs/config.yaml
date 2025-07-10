@@ -25,5 +25,11 @@ benchmarks:
     duration: 300
     repetitions: 10
     select_only: true
+  - name: tpch
+    description: |
+      TPC-H analytical benchmark. Loads TPC-H data and runs all 22 standard queries. Results are aggregated into a CSV.
+    scale_factor: 1
+    repetitions: 1
+    queries_dir: benchmarks/tpch/queries/
 
 output_dir: ../results

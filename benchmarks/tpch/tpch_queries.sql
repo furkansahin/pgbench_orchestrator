@@ -1,0 +1,3 @@
+-- Placeholder for TPC-H queries 1-22
+-- Place each TPC-H query here, separated by comments or labels.
+-- The orchestrator will split and run these sequentially.
