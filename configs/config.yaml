@@ -1,16 +1,16 @@
 # Benchmark configuration for pgbench orchestrator
 
 postgresql_instances:
-  - name: ax-102-dev
+  - name: ax-102
     conn_str: postgresql://postgres:jNDijf0Yn_tYxEnDMeWk@ax-102.pgvgmye3h8q23ksnst7698yba3.dev.furkansahin.work:5432/postgres
-  - name: ubicloud-ax162
+  - name: ax-162
     conn_str: postgresql://postgres:qiLNXGpzvnRvZxuYjU71@ax162.pgw401neq5zy3pwsewrrv5xbh3.postgres.ubicloud.com:5432/postgres
 
 benchmarks:
   - name: disk_io_intensive
     description: |
-      Standard pgbench TPC-B workload with high scale factor and many clients to stress disk IO.
-    scale_factor: 1000
+      Standard pgbench TPC-B workload with very high scale factor (dataset much larger than RAM) and many clients to ensure true disk IO stress.
+    scale_factor: 20000
     clients: 32
     threads: 8
     duration: 300 # seconds

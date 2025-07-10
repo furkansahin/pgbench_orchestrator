@@ -16,7 +16,7 @@ This tool automates repeated benchmarking of PostgreSQL instances using pgbench 
 3. Results will be saved in the `results/` directory.
 
 ## Benchmark Scenarios
-- **Disk IO Intensive:** Standard pgbench workload with high scale factor and many clients.
+- **Disk IO Intensive:** Standard pgbench workload with a very large scale factor (20000), making the dataset much larger than RAM, ensuring true disk IO pressure.
 - **CPU Intensive:** Built-in pgbench 'select-only' mode (`-S`) for CPU stress with minimal disk IO.
 
 You can adjust parameters in the config file for your needs.
