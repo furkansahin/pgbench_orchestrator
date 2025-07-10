@@ -29,7 +29,7 @@ def check_pgbench_scale(conn_str, expected_scale):
         return False
 
 
-def run_pgbench(instance, bench, output_dir):
+def run_pgbench(instance, bench, output_dir, skip_db_check=False):
     results = []
     conn_str = instance['conn_str']
     name = instance['name']
@@ -42,17 +42,20 @@ def run_pgbench(instance, bench, output_dir):
 
     # Check existing initialization
     need_init = True
-    try:
-        import psycopg2
-        print(f"[INFO] Checking if pgbench_accounts table exists and matches scale_factor for {name}...")
-        if check_pgbench_scale(conn_str, scale):
-            resp = input(f"[PROMPT] pgbench_accounts table already matches scale_factor {scale} for {name}. Re-initialize? (y/N): ").strip().lower()
-            if resp != 'y':
-                need_init = False
-    except ImportError:
-        print("[WARN] psycopg2 not installed, skipping DB check. Always initializing.")
-    except Exception as e:
-        print(f"[WARN] Could not check pgbench_accounts table: {e}. Always initializing.")
+    if not skip_db_check:
+        try:
+            import psycopg2
+            print(f"[INFO] Checking if pgbench_accounts table exists and matches scale_factor for {name}...")
+            if check_pgbench_scale(conn_str, scale):
+                resp = input(f"[PROMPT] pgbench_accounts table already matches scale_factor {scale} for {name}. Re-initialize? (y/N): ").strip().lower()
+                if resp != 'y':
+                    need_init = False
+        except ImportError:
+            print("[WARN] psycopg2 not installed, skipping DB check. Always initializing.")
+        except Exception as e:
+            print(f"[WARN] Could not check pgbench_accounts table: {e}. Always initializing.")
+    else:
+        print("[INFO] Skipping DB check due to --skip-db-check flag. Always initializing.")
 
     if need_init:
         print(f"[INFO] Initializing DB for {name} with scale {scale}...")
@@ -119,12 +122,17 @@ def run_pgbench(instance, bench, output_dir):
 
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="pgbench orchestrator")
+    parser.add_argument('--skip-db-check', action='store_true', help='Skip pgbench_accounts table check and always initialize')
+    args = parser.parse_args()
+
     config = load_config()
     ensure_dir(config['output_dir'])
     for instance in config['postgresql_instances']:
         for bench in config['benchmarks']:
             print(f"[INFO] Benchmarking {instance['name']} with {bench['name']} scenario...")
-            run_pgbench(instance, bench, config['output_dir'])
+            run_pgbench(instance, bench, config['output_dir'], skip_db_check=args.skip_db_check)
     print("[DONE] All benchmarks completed.")
 
 
