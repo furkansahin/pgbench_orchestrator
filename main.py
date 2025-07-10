@@ -62,10 +62,16 @@ def run_pgbench(instance, bench, output_dir):
     else:
         print(f"[INFO] Skipping initialization for {name}.")
 
+    import csv
+    import re
+    csv_file = os.path.join(
+        output_dir, f"{name}_{bench['name']}_results.csv")
+    fieldnames = [
+        'instance', 'benchmark', 'run', 'scaling_factor', 'clients', 'threads', 'duration',
+        'transactions', 'failed_transactions', 'latency_avg_ms', 'tps'
+    ]
+    rows = []
     for r in range(reps):
-        ts = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-        out_file = os.path.join(
-            output_dir, f"{name}_{bench['name']}_run{r+1}_{ts}.txt")
         print(f"[INFO] Running {bench['name']} benchmark (run {r+1}/{reps}) on {name}...")
         cmd = [
             'pgbench',
@@ -76,10 +82,40 @@ def run_pgbench(instance, bench, output_dir):
         if bench.get('select_only', False):
             cmd.append('-S')
         cmd.append(conn_str)
-        with open(out_file, 'w') as f:
-            proc = subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT)
-        results.append(out_file)
-    return results
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        output = proc.stdout
+
+        # Parse output
+        def extract(pattern, text, cast=str, default=None):
+            m = re.search(pattern, text)
+            if m:
+                return cast(m.group(1))
+            return default
+        transactions = extract(r"number of transactions actually processed: (\d+)", output, int)
+        failed_transactions = extract(r"number of failed transactions: (\d+)", output, int)
+        latency_avg = extract(r"latency average = ([\d.]+) ms", output, float)
+        tps = extract(r"tps = ([\d.]+) ", output, float)
+        row = {
+            'instance': name,
+            'benchmark': bench['name'],
+            'run': r+1,
+            'scaling_factor': scale,
+            'clients': clients,
+            'threads': threads,
+            'duration': duration,
+            'transactions': transactions,
+            'failed_transactions': failed_transactions,
+            'latency_avg_ms': latency_avg,
+            'tps': tps
+        }
+        rows.append(row)
+    # Write CSV
+    with open(csv_file, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+    print(f"[INFO] Results written to {csv_file}")
+    return csv_file
 
 
 def main():
