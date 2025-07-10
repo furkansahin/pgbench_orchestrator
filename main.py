@@ -16,6 +16,19 @@ def ensure_dir(path):
     Path(path).mkdir(parents=True, exist_ok=True)
 
 
+def check_pgbench_scale(conn_str, expected_scale):
+    import psycopg2
+    try:
+        conn = psycopg2.connect(conn_str)
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM pgbench_accounts;")
+        count = cur.fetchone()[0]
+        conn.close()
+        return count == expected_scale * 100000
+    except Exception:
+        return False
+
+
 def run_pgbench(instance, bench, output_dir):
     results = []
     conn_str = instance['conn_str']
@@ -27,11 +40,27 @@ def run_pgbench(instance, bench, output_dir):
     reps = bench['repetitions']
     script = bench.get('script')
 
-    # Initialize DB if needed
-    print(f"[INFO] Initializing DB for {name} with scale {scale}...")
-    subprocess.run([
-        'pgbench', '-i', '-s', str(scale), conn_str
-    ], check=True)
+    # Check existing initialization
+    need_init = True
+    try:
+        import psycopg2
+        print(f"[INFO] Checking if pgbench_accounts table exists and matches scale_factor for {name}...")
+        if check_pgbench_scale(conn_str, scale):
+            resp = input(f"[PROMPT] pgbench_accounts table already matches scale_factor {scale} for {name}. Re-initialize? (y/N): ").strip().lower()
+            if resp != 'y':
+                need_init = False
+    except ImportError:
+        print("[WARN] psycopg2 not installed, skipping DB check. Always initializing.")
+    except Exception as e:
+        print(f"[WARN] Could not check pgbench_accounts table: {e}. Always initializing.")
+
+    if need_init:
+        print(f"[INFO] Initializing DB for {name} with scale {scale}...")
+        subprocess.run([
+            'pgbench', '-i', '-s', str(scale), conn_str
+        ], check=True)
+    else:
+        print(f"[INFO] Skipping initialization for {name}.")
 
     for r in range(reps):
         ts = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')

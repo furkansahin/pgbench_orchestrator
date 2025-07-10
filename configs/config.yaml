@@ -10,7 +10,7 @@ benchmarks:
   - name: disk_io_intensive
     description: |
       Standard pgbench TPC-B workload with very high scale factor (dataset much larger than RAM) and many clients to ensure true disk IO stress.
-    scale_factor: 20000
+    scale_factor: 10000
     clients: 32
     threads: 8
     duration: 300 # seconds
