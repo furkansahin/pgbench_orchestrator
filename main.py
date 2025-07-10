@@ -57,7 +57,7 @@ def run_pgbench(instance, bench, output_dir, skip_db_check=False):
     else:
         print("[INFO] Skipping DB check due to --skip-db-check flag. Always initializing.")
 
-    if need_init:
+    if need_init and not skip_db_check:
         print(f"[INFO] Initializing DB for {name} with scale {scale}...")
         subprocess.run([
             'pgbench', '-i', '-s', str(scale), conn_str
