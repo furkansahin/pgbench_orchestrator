@@ -1,0 +1,29 @@
+# Benchmark configuration for pgbench orchestrator
+
+postgresql_instances:
+  - name: ax-102-dev
+    conn_str: postgresql://postgres:jNDijf0Yn_tYxEnDMeWk@ax-102.pgvgmye3h8q23ksnst7698yba3.dev.furkansahin.work:5432/postgres
+  - name: ubicloud-ax162
+    conn_str: postgresql://postgres:qiLNXGpzvnRvZxuYjU71@ax162.pgw401neq5zy3pwsewrrv5xbh3.postgres.ubicloud.com:5432/postgres
+
+benchmarks:
+  - name: disk_io_intensive
+    description: |
+      Standard pgbench TPC-B workload with high scale factor and many clients to stress disk IO.
+    scale_factor: 1000
+    clients: 32
+    threads: 8
+    duration: 300 # seconds
+    repetitions: 10
+    script: null # Use built-in pgbench workload
+  - name: cpu_intensive
+    description: |
+      pgbench built-in 'select-only' mode to stress CPU with minimal disk IO.
+    scale_factor: 100
+    clients: 32
+    threads: 8
+    duration: 300
+    repetitions: 10
+    select_only: true
+
+output_dir: ../results
